@@ -1,4 +1,3 @@
-from calendar import c
 from core.workers import IntegrityChecker
 
 from core.thread import KillableThread
