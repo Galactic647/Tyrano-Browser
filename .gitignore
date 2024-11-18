@@ -1,0 +1,13 @@
+__pycache__
+resources
+template
+build
+dist
+test
+
+*test*.*
+*.ui
+*-old.*
+old*.*
+*.spec
+*.json
