@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Union, Optional
 from pathlib import Path
 from urllib import parse
-import cProfile
 import hashlib
 import pathlib
 import regex
@@ -56,42 +55,6 @@ def _temp_file_gen(input_file: Path, args=None) -> SavParser:
     parser.unpack_to_file(args=args)
     parser.pack(args=args)
     return parser
-
-
-def unquote(text: str) -> str:
-    search = RE_NON_ASCII.findall(text)
-
-    if search is not None:
-        filtered = []
-        for s in search:
-            trimmed = s[2:]
-            unc = int(trimmed, 16)
-            if unc > 0x10ffff:  # Max unicode character
-                trimmed = trimmed[:-1]
-                unc = int(trimmed, 16)
-            filtered.append((trimmed, chr(unc)))
-        filtered = dict((f'%u{f[0]}', f[1]) for f in filtered)
-        for k, v in filtered.items():
-            text = text.replace(k, v)
-    
-    bits = ASCIIRE.split(text)
-    res = [bits[0]]
-
-    for i in range(1, len(bits), 2):
-        cstr = bits[i].encode('utf-8')
-        cbits = cstr.split(b'%')
-
-        cres = [cbits[0]]
-        for item in cbits[1:]:
-            try:
-                cres.append(BYTEHEX[item[:2]])
-                cres.append(item[2:])
-            except KeyError:
-                cres.append(b'%')
-                cres.append(item)
-        res.append(b''.join(cres).decode('utf-8', 'replace'))
-        res.append(bits[i + 1])
-    return ''.join(res)
 
 
 def quote(text: str) -> str:
