@@ -6,6 +6,7 @@ dist
 test
 .vscode
 
+*.ini
 *test*.*
 *.ui
 *-old.*
