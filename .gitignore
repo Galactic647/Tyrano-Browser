@@ -4,6 +4,7 @@ template
 build
 dist
 test
+.vscode
 
 *test*.*
 *.ui
