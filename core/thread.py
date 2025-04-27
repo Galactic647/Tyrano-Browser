@@ -1,28 +1,33 @@
-import threading
-import ctypes
+from PySide2.QtCore import QObject, QThread
+
+from typing import Optional, Callable
 
 
-class KillableThread(threading.Thread):
-    # It's bad but there's no other way.
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.killed = False
+class ThreadManager(object):
+    def __init__(self):
+        self.threads = list()
+        self.workers = list()
 
-    def get_id(self):
-        if hasattr(self, '_thread_id'):
-            return self._thread_id
-        for id_, thread in threading._active.items():
-            if thread is self:
-                return id_
+    def run(self, worker: QObject, *args, callback: Optional[Callable] = None, **kwargs):
+        thread = QThread()
+        worker = worker(*args, **kwargs)
+        worker.moveToThread(thread)
 
-    def kill(self, auto_join=True):
-        thread_id = self.get_id()
-        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
-        if res > 1:
-            ctypes.pythonapi.PyThreadSate_SetAsyncExc(thread_id, 0)
+        thread.started.connect(worker.run)
+
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
+        if callback:
+            worker.result.connect(callback)
+
+        def on_finished():
+            self.threads.remove(thread)
+            self.workers.remove(worker)
         
-        if auto_join:
-            self.join()
+        thread.finished.connect(on_finished)
 
-    
+        self.threads.append(thread)
+        self.workers.append(worker)
+        thread.start()
