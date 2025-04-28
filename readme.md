@@ -1,8 +1,8 @@
 # Tyrano Browser
 
-Tyrano browser is a simple tool that meant to function like [cheat engine](https://www.cheatengine.org). I tried to make it look similar to it as well.
+Tyrano browser is a simple tool that meant to function like [cheat engine](https://www.cheatengine.org). Unlike cheat engine that works directly with memory, tyrano browser utilize Chrome Devtools Protocol (CDP) that comes with tyrano games, this allows the tool to interact with the game directly which can be used to alter it's variables.
 
-There's still quite a bit to work on but here's the current preview on what it would look like (some stuff might change in the future).
+The code is currently bring rewritten almost from scratch due to the change in framework, so the preview below are kind of outdated, but it still look somewhat similar.
 
 ![image](https://github.com/user-attachments/assets/9814c027-1e2a-4e73-8ce9-a48b904435a3)
 
