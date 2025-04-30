@@ -9,7 +9,7 @@ test
 *.ini
 *test*.*
 *.ui
-*-old.*
+*-old*.*
 old*.*
 *.spec
 *.json
