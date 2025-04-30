@@ -1,5 +1,6 @@
 from typing import Optional
 
+from urllib.parse import unquote
 import websockets
 import asyncio
 import aiohttp
@@ -40,21 +41,36 @@ async def wait_for_port_async(port, timeout: Optional[float] = 5) -> bool:
 def wait_for_port(port, timeout: Optional[float] = 5) -> bool:
     return asyncio.run(wait_for_port_async(port, timeout))
 
-async def get_cdp_ws_url_async(port) -> str:
-    # TODO needs to find out a way to find the actual websocket url
-    # and not just hardcoding the index
+async def get_cdp_ws_url_async(port, path_url, wait: Optional[bool] = False) -> str:
+    if wait:
+        available = await wait_for_port_async(port)
+        if not available:
+            raise ConnectionRefusedError
+
     async with aiohttp.ClientSession() as session:
         async with session.get(f'http://localhost:{port}/json') as response:
             data = await response.json()
-            return data[1]['webSocketDebuggerUrl']
-
-def get_cdp_ws_url(port) -> str:
-    return asyncio.run(get_cdp_ws_url_async(port))
+            for d in data:
+                if str(path_url.parent).replace('\\', '/') in unquote(d['url']):
+                    return d['webSocketDebuggerUrl']
+                
+def get_cdp_ws_url(port, path_url, wait: Optional[bool] = False) -> str:
+    return asyncio.run(get_cdp_ws_url_async(port, path_url, wait))
 
 
 class RuntimeMethods:
     EVALUATE = "Runtime.evaluate"
     GET_PROPERTIES = "Runtime.getProperties"
+
+
+class TyranoVars:
+    F = 'TYRANO.kag.stat.f'
+    TF = 'TYRANO.kag.variable.tf'
+    SF = 'TYRANO.kag.variable.sf'
+
+    F_PART = 'stat.f'
+    TF_PART = 'variable.tf'
+    SF_PART = 'variable.sf'
 
 
 class CDPHandler(object):
@@ -73,15 +89,23 @@ class CDPHandler(object):
         return self._msg_id
 
     async def connect(self) -> None:
-        self.websocket = await websockets.connect(self.websocket_url)
+        self.websocket = await websockets.connect(
+            self.websocket_url,
+
+            # websocket ping (using ping_interval or from calling .ping() method)
+            # will clash with .recv() inside _listener() method.
+            # setting this to None solve the issue
+            ping_interval=None
+        )
+        self._listener_task = None
         self._listener_task = asyncio.create_task(self._listener())
         self._active = True
 
     async def close(self) -> None:
         self._active = False
-        await self._listener_task
+        await self._listener_task.cancel()
         await self.websocket.close()
-
+    
     async def _listener(self) -> None:
         try:
             while self._active:
@@ -94,8 +118,10 @@ class CDPHandler(object):
                 else:
                     raise NotImplementedError(message)
                 await asyncio.sleep(0.01)
-        except websockets.ConnectionClosed:
-            pass
+        except websockets.exceptions.ConnectionClosedError:
+            await self.connect()
+        except Exception as e:
+            print(repr(e), '-------')
     
     async def send(self, method, params):
         msg = {
@@ -103,9 +129,11 @@ class CDPHandler(object):
             "method": method,
             "params": params
         }
-        future = asyncio.get_event_loop().create_future()
+        future = asyncio.get_running_loop().create_future()
         self.pending[msg['id']] = future
 
+        if self.websocket.closed:
+            await self.connect()
         await self.websocket.send(json.dumps(msg))
         return await future
     
@@ -121,6 +149,7 @@ class CDPHandler(object):
             properties = await self.get_properties(object_id)
 
             data = list()
+            data_d = dict()
             for prop in properties:
                 k = prop['name']
                 v = prop['value']
@@ -128,16 +157,43 @@ class CDPHandler(object):
                 if k in SKIP_PROPERTIES:
                     continue
 
-                if v['type'] in ('string', 'number', 'boolean'):
-                    data.append(v['value'])
-                else:
-                    data.append(await self._get_value(k, v))
+                if v['type'] in ('string', 'boolean') or v.get('subtype') == 'null':
+                    if k.isdigit():
+                        data.append(v['value'])
+                    else:
+                        data_d[k] = v['value']
+                elif v['type'] == 'number':
+                    if 'value' in v:
+                        val = v['value']
+                    else:
+                        val = float('nan')
 
-            if value['subtype'] == 'array' and key.isdigit():
+                    if k.isdigit():
+                        data.append(val)
+                    else:
+                        data_d[k] = val
+                else:
+                    sv = await self._get_value(k, v)
+
+                    if isinstance(sv, list):
+                        data.append(sv)
+                    else:
+                        data_d.update(sv)
+
+            if key.isdigit() and value['subtype'] == 'array' :
                 return data
-            result[key] = data
-        elif value['type'] in ('string', 'number', 'boolean'):
+
+            if data_d:
+                result[key] = data_d
+            else:
+                result[key] = data
+        elif value['type'] in ('string', 'boolean'):
             result[key] = value['value']
+        elif value['type'] == 'number':
+            if 'value' in value:
+                result[key] = value['value']
+            else:
+                result[key] = float('nan')
         else:
             raise NotImplementedError(value)
         
