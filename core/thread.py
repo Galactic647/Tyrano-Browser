@@ -9,6 +9,8 @@ import asyncio
 
 
 def threaded(func):
+    """Decorator to run blocking function inside the main gui in a QThread"""
+
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         callback = kwargs.pop('callback', None)
@@ -26,6 +28,19 @@ def threaded(func):
     return wrapper
 
 def run_async(coro):
+    """Decorator that runs a coroutine in a QThread.
+    
+    Can call a coroutine directly.
+
+    Example:
+        @run_async
+        async def coro(self):
+            print('hello')
+            
+        def run(self):
+            self.coro()
+    """
+
     @functools.wraps(coro)
     def wrapper(self, *args, **kwargs):
         callback = kwargs.pop('callback', None)
@@ -43,6 +58,21 @@ def run_async(coro):
     return wrapper
 
 def run_cdp_async_protocol(coro):
+    """Decorator that runs a coroutine in a QThread.
+    
+    Use this if you use methods of CDPHandler in your coroutine.
+
+    Example:
+        @run_cdp_async_protocol
+        async def connect(self):
+            ws_url = await cdphandler.get_cdp_ws_url_async(9222, self.game.game, wait=True)
+            self.handler = cdphandler.CDPHandler(ws_url)
+            await self.handler.connect()
+            
+        def run(self):
+            self.connect()
+    """
+
     @functools.wraps(coro)
     def wrapper(self, *args, **kwargs):
         callback = kwargs.pop('callback', None)
