@@ -1,4 +1,5 @@
 from ui.widget import CustomEditTreeWidget, CustomCheckboxDelegate, CustomTreeWidget
+from ui.dialog import EditValueDialog
 
 from PySide2.QtCore import QMetaObject, QRect, QSize, Qt
 from PySide2.QtGui import QFont
@@ -104,7 +105,10 @@ class TyranoBrowserUI(QMainWindow):
         self.ResultTab.setIndentation(0)
         self.ResultTab.setItemsExpandable(False)
         self.ResultTab.setExpandsOnDoubleClick(False)
+        self.ResultTab.setAllColumnsShowFocus(True)
         self.ResultTab.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.ResultTab.doubleClicked.connect(self.rt_move_to_vl)
+        self.ResultTab.customContextMenuRequested.connect(self.rt_context_menu)
 
         # ----- Tab Widget - Scan Tab - Scan Option Section -----
         self.ScanActionContainer = QVBoxLayout()
@@ -270,12 +274,14 @@ class TyranoBrowserUI(QMainWindow):
         self.ValueListWidget.setDragEnabled(True)
         self.ValueListWidget.setAcceptDrops(True)
         self.ValueListWidget.setDropIndicatorShown(True)
+        self.ValueListWidget.setAllColumnsShowFocus(True)
         self.ValueListWidget.setDragDropMode(QAbstractItemView.InternalMove)
         self.ValueListWidget.setDefaultDropAction(Qt.MoveAction)
         self.ValueListWidget.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.ValueListWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.ValueListWidget.setItemDelegateForColumn(0, CustomCheckboxDelegate(parent=self.ValueListWidget))
         self.ValueListWidget.customContextMenuRequested.connect(self.vl_context_menu)
-        self.ValueListWidget.setItemDelegateForColumn(0, CustomCheckboxDelegate(18, self.ValueListWidget))
+        self.ValueListWidget.itemDoubleClicked.connect(self.vl_edit_item_popup)
         self.ValueListContainer.addWidget(self.ValueListWidget)
 
         self.ValueListsSection.addTab(self.ValueListTab, '')
@@ -338,7 +344,8 @@ class TyranoBrowserUI(QMainWindow):
 
         self.RawListWidget = CustomEditTreeWidget([0], self.RawListPageVLayoutWidget)
         self.RawListWidget.setExpandsOnDoubleClick(False)
-        self.RawListWidget.setItemDelegateForColumn(0, CustomCheckboxDelegate(20, self.RawListPageVLayoutWidget))
+        self.RawListWidget.setAllColumnsShowFocus(True)
+        self.RawListWidget.setItemDelegateForColumn(0, CustomCheckboxDelegate(self.RawListPageVLayoutWidget))
         self.RawListContainer.addWidget(self.RawListWidget)
 
         self.RawListActionContainerWidget.addWidget(self.RawListPage)
@@ -420,3 +427,92 @@ class TyranoBrowserUI(QMainWindow):
 
         self.ValueListsSection.setTabText(self.ValueListsSection.indexOf(self.ValueListTab), 'Value List')
         self.ValueListsSection.setTabText(self.ValueListsSection.indexOf(self.RawListTab), 'Raw List')
+
+        self.add_item_to_value_list('day', 'stat.f.day', 99, self.ValueListWidget)
+        self.add_item_to_value_list('mood', 'stat.f.mood', 'normal', self.ValueListWidget)
+        self.add_item_to_value_list('day2', 'stat.f.day2', 56, self.ValueListWidget)
+
+        item = QTreeWidgetItem(self.ValueListWidget, ['Group 1', '', ''])
+        self.add_item_to_value_list('day3', 'stat.f.day3', 23, item)
+        self.add_item_to_value_list('day4', 'stat.f.day4', 11, item)
+
+    def _update_scan_by(self):
+        if self.ValueRadioButton.isChecked():
+            self.SearchTypeInput.setEnabled(True)
+            self._update_scan_type()
+        else:
+            self.SearchTypeInput.setEnabled(False)
+            self.ScanInputContainer.setCurrentIndex(0)
+
+    def _update_scan_type(self):
+        no_input = ['Unknown', 'Ignore', 'Increased value', 'Decreased value', 'Changed value', 'Unchanged value']
+        if self.SearchTypeInput.currentText() in no_input:
+            self.ScanInputContainer.setCurrentIndex(2)
+        elif self.SearchTypeInput.currentText() == 'Between...':
+            self.ScanInputContainer.setCurrentIndex(1)
+        else:
+            self.ScanInputContainer.setCurrentIndex(0)
+
+    def add_item_to_value_list(self, name, path, value, parent):
+        item = QTreeWidgetItem(parent, [name, path, str(value)])
+        item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled | Qt.ItemIsUserCheckable)
+        item.setCheckState(0, Qt.Unchecked)
+
+    def rt_move_to_vl(self, index):
+        item = self.ResultTab.itemFromIndex(index)
+        if item is None:
+            return
+
+        self.add_item_to_value_list(item.text(0), item.text(3), item.text(1), self.ValueListWidget)
+        # self.refresh_value_list()
+
+    def vl_edit_item_popup(self, item, column):
+        header = self.ValueListWidget.headerItem().text(column)
+        value = item.text(column)
+        
+        dialog = EditValueDialog(header, value, self)
+        if dialog.exec_():
+            item.setText(column, dialog.new_value)
+
+    def rt_context_menu(self, position):
+        items = self.ResultTab.selectedItems()
+        if not items:
+            return
+        
+        menu = QMenu(self)
+        add_selected = menu.addAction('Add selected variables to value list')
+        change_value = menu.addAction('Change value of selected variables')
+        change_value_to_previous = menu.addAction('Change value of selected variables to previous value')
+        remove_selected = menu.addAction('Remove selected variables')
+
+        action = menu.exec_(self.ResultTab.viewport().mapToGlobal(position))
+
+        if action == add_selected:
+            for item in items:
+                self.add_item_to_value_list(item.text(0), item.text(3), item.text(1), self.ValueListWidget)
+        elif action == change_value:
+            # Needs logic that query the current value from the game
+            # Prioritize changing value than querying
+            pass
+        elif action == change_value_to_previous:
+            pass
+        elif action == remove_selected:
+            for item in items:
+                self.ResultTab.takeTopLevelItem(self.ResultTab.indexOfTopLevelItem(item))
+
+    def vl_context_menu(self, position):
+        clicked_item = self.ValueListWidget.itemAt(position)
+
+        if clicked_item is not None:
+            pass
+        else:
+            self._vl_context_menu_item(position)
+
+    def _vl_context_menu_item(self, position):
+        menu = QMenu(self)
+
+        create_item = menu.addAction('Create Item')
+        sep1 = menu.addSeparator()
+        create_header = menu.addAction('Create Header')
+
+        action = menu.exec_(self.ValueListWidget.viewport().mapToGlobal(position))
