@@ -1,62 +1,49 @@
-from PySide2.QtWidgets import QTreeWidget, QStyledItemDelegate, QStyle
+from PySide2.QtWidgets import QTreeWidget, QStyledItemDelegate, QStyleOptionViewItem, QStyle, QStyleOptionButton
 from PySide2.QtGui import QBrush, QColor, QPen
+from PySide2.QtWidgets import QApplication
 from PySide2.QtCore import Qt, QRect
 
 from typing import Union
 
 
 class CustomCheckboxDelegate(QStyledItemDelegate):
-    def __init__(self, size, parent=None) -> None:
+    def __init__(self, parent=None) -> None:
         super(CustomCheckboxDelegate, self).__init__(parent)
-
-        self.size = size
 
     def paint(self, painter, option, index):
         if not index.column() and index.data(Qt.CheckStateRole) is not None:
-            if option.state & QStyle.State_MouseOver:
-                if option.state & QStyle.State_Selected:
-                    painter.fillRect(option.rect, QBrush(QColor(64, 64, 64)))
-                else:
-                    painter.fillRect(option.rect, QBrush(QColor(48, 48, 48)))
-            elif option.state & QStyle.State_Selected:
-                if option.state & QStyle.State_HasFocus:
-                    painter.fillRect(option.rect, QBrush(QColor(64, 64, 64)))
-                else:
-                    painter.fillRect(option.rect, QBrush(QColor(48, 48, 48)))
-            else:
-                painter.fillRect(option.rect, option.palette.base())
+            opt = QStyleOptionViewItem(option)
+            self.initStyleOption(opt, index)
+            style = opt.widget.style() if opt.widget else QApplication.style()
 
-            state = index.data(Qt.CheckStateRole)
-            pos = (
-                option.rect.x(),
-                option.rect.center().y() - self.size // 2
+            style.drawControl(QStyle.CE_ItemViewItem, opt, painter, opt.widget)
+            check_rect = style.subElementRect(QStyle.SE_ItemViewItemCheckIndicator, opt, opt.widget)
+
+            scale = 1.5
+            w = check_rect.width()
+            h = check_rect.height()
+            center = check_rect.center()
+
+            larger_rect = QRect(
+                center.x() - int(w * scale / 2),
+                center.y() - int(h * scale / 2),
+                int(w * scale),
+                int(h * scale)
             )
-            rect = QRect(*pos, self.size, self.size)
 
-            if state == Qt.Checked:
-                if option.state & QStyle.State_MouseOver:
-                    pen = QPen(QColor(255, 255, 255), 1)
-                    brush = QBrush(QColor(0, 224, 0))
-                else:
-                    pen = QPen(QColor(224, 224, 224), 1)
-                    brush = QBrush(QColor(0, 224, 0))
+            check_state = index.data(Qt.CheckStateRole)
+            cb_opt = QStyleOptionButton()
+            cb_opt.state = QStyle.State_Enabled | QStyle.State_Active
+            if check_state == Qt.Checked:
+                cb_opt.state |= QStyle.State_On
             else:
-                if option.state & QStyle.State_MouseOver:
-                    pen = QPen(QColor(192, 192, 192), 1)
-                    brush = QBrush(QColor(32, 32, 32))
-                else:
-                    pen = QPen(QColor(160, 160, 160), 1)
-                    brush = QBrush(QColor(32, 32, 32))
+                cb_opt.state |= QStyle.State_Off
 
-            painter.setPen(pen)
-            painter.setBrush(brush)
-            painter.drawRect(rect)
-            text_rect = option.rect.adjusted(30, 0, 0, 0)
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(text_rect, Qt.AlignVCenter, index.data(Qt.DisplayRole))
+            cb_opt.rect = larger_rect
+            style.drawPrimitive(QStyle.PE_IndicatorViewItemCheck, cb_opt, painter, opt.widget)
         else:
             super().paint(painter, option, index)
-    
+
     def createEditor(self, parent, option, index):
         return None
 
