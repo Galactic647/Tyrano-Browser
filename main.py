@@ -1,10 +1,12 @@
 from ui.ui import TyranoBrowserUI
-from core import attach, worker, thread
+from core import worker, thread, process, cdphandler as cdph
+from core.cdphandler import TyranoVars
 
 from PySide2.QtMultimedia import QSound
-from PySide2.QtCore import Qt, QTimer, QThread
+from PySide2.QtCore import Qt, QTimer, QThread, Signal
 from PySide2.QtWidgets import QApplication, QFileDialog, QTreeWidgetItem, QMessageBox
 
+from pathlib import Path
 import asyncio
 import json
 import time
@@ -18,11 +20,16 @@ class TyranoBrowser(TyranoBrowserUI):
     # TODO Complex Problem
     # 1. Need an algorithm to check the difference between loaded data and new data,
     #    while still keeping in mind of new variables that doesn't exist in the current loaded data.
+    update_gui_signal = Signal(dict)
 
     def __init__(self):
         super().__init__()
 
         self.thread_manager = thread.ThreadManager()
+        self.persistent_async = thread.PersistentAsync()
+        self.persistent_async.start()
+
+        self.update_gui_signal.connect(self.gui_updater)
 
         # self.backend = Backend(self)
 
@@ -34,7 +41,7 @@ class TyranoBrowser(TyranoBrowserUI):
 
     #     self.LocateGameButton.clicked.connect(self.locate_game_exec)
 
-    #     self.actionOpen_file.triggered.connect(self.open_save_file)
+        self.actionLaunch_Game.triggered.connect(self.open_save_file)
     #     self.actionLoad_Template.triggered.connect(self.load_template_file)   
 
     #     self.actionSave.triggered.connect(self.save_file)
@@ -43,7 +50,7 @@ class TyranoBrowser(TyranoBrowserUI):
     #     self.actionSaveTemplate.triggered.connect(self.save_template)
     #     self.actionSaveTemplate_as.triggered.connect(self.save_template_as)
 
-        self.ScanButton.clicked.connect(self.test)
+        self.ScanButton.clicked.connect(self.scan_function)
     #     self.ClearButton.clicked.connect(self.clear_result)
     #     self.UndoButton.clicked.connect(self.undo_result)
 
@@ -78,13 +85,24 @@ class TyranoBrowser(TyranoBrowserUI):
     #     self.load_raw_thread: KillableThread = None
     #     self.flattening_thread: KillableThread = None
 
+    @thread.run_cdp_async_protocol
+    async def close_websocket(self, event):
+        await self.handler.close()
+        self.persistent_async.stop()
 
-    def test(self):
-        self.thread_manager.run(worker.GenericWorker, attach.check_port, 9222, callback=self.on_result)
+        return super().closeEvent(event)
 
-    def on_result(self, result):
-        print(type(result))
-        print(result)
+    def closeEvent(self, event):
+        self.close_websocket(event)
+
+    def update_gui(self, func, *args, **kwargs):
+        self.update_gui_signal.emit({'func': func, 'args': args, 'kwargs': kwargs})
+
+    def gui_updater(self, data: dict):
+        func = data['func']
+        args = data.get('args', tuple())
+        kwargs = data.get('kwargs', dict())
+        func(*args, **kwargs)
 
     # def find_changes(self, old_data, new_data, path=''):
     #     changes = dict()
@@ -203,29 +221,19 @@ class TyranoBrowser(TyranoBrowserUI):
     #     else:
     #         item = QTreeWidgetItem(parent, [name, str(data)])
 
-    # def display_result(self, data):
-    #     pattern = self.SlotStyleInput.currentText()
-    #     slots_per_tabs = self.SlotsPerTabInput.value()
-    #     tab = tab_slot = 0
+    def display_result(self, data):
+        for d in data:
+            for path, value in d.items():
+                name = path.split('.')[-1]
 
-    #     for d in data:
-    #         for path, value in d.items():
-    #             name = path.split('.')[-1]
-    #             slot, *pth = path.split('.')
-    #             slot = int(slot[5:-1])
-
-    #             if slots_per_tabs:
-    #                 tab, tab_slot = divmod(slot, slots_per_tabs)
-    #                 if not tab_slot:
-    #                     tab -= 1
-    #                     tab_slot = slots_per_tabs
-
-    #             QTreeWidgetItem(self.ResultTab, [
-    #                 name,
-    #                 str(value),
-    #                 pattern.format(slot=slot + 1, tab=tab + 1, tab_slot=tab_slot),
-    #                 '.'.join(pth)
-    #             ])
+                QTreeWidgetItem(self.ResultTab, [
+                    name,
+                    str(value),
+                    str(value),
+                    path
+                ])
+        self.ScanButton.setEnabled(True)
+                
 
     # def clear_result(self):
     #     self.ResultTab.clear()
@@ -245,39 +253,98 @@ class TyranoBrowser(TyranoBrowserUI):
     #     self.UndoButton.setEnabled(False)
     #     self.FoundLabel.setText(f'Found: {len(self.prev_result_cache)}')
 
-    # def scan_function(self):
-    #     self.ResultTab.clear()
+    @thread.run_cdp_async_protocol
+    async def search_by_name(self, name):
+        start = time.perf_counter()
+        self._data = await self.handler.evaluate(TyranoVars.F, True)
+        self._data = self.flatten(self._data, 'stat.f.')
 
-    #     if self.ScanButton.text() == 'Cancel':
-    #         self.flattening_thread.kill()
-    #         self.ScanProgressBar.setValue(0)
-    #         self.scan_progress_bar_value = 0
-    #         self.change_progress_bar_state('normal')
-    #         self.ScanButton.setText('Scan')
-    #         return
+        self._tf_data = await self.handler.evaluate(TyranoVars.TF, True)
+        self._tf_data = self.flatten(self._tf_data, 'variable.tf.')
+        self._data.update(self._tf_data)
 
-    #     if not self.ScanInput.text():
-    #         QMessageBox.critical(self, 'Error', 'Please enter a search query')
-    #         return
-    #     if not self.flattened_data:
-    #         self.ScanButton.setText('Cancel')
-    #         self.change_progress_bar_state('process')
-    #         self.flattening_thread = KillableThread(target=self.create_flattened_data, daemon=True)
-    #         self.flattening_thread.start()
-    #         return
+        data = self._data
+        found = []
+        for k in data:
+            if name in k.rpartition('.')[-1].split('[')[0]:
+                found.append(k)
+
+        self.FoundLabel.setText(f'Found: {len(found)} ({time.perf_counter() - start:.4f}s)')
+
+        self.display_result(list({n: self._data[n]} for n in found))
+
+    @thread.run_cdp_async_protocol
+    async def search_by_value(self, value):
+        if value.isdigit():
+            value = int(value)
+        else:
+            try:
+                value = float(value)
+            except ValueError:
+                pass
+
+        start = time.perf_counter()
+        self._data = await self.handler.evaluate(TyranoVars.F, True)
+        self._data = self.flatten(self._data, 'stat.f.')
+
+        self._tf_data = await self.handler.evaluate(TyranoVars.TF, True)
+        self._tf_data = self.flatten(self._tf_data, 'variable.tf.')
+        self._data.update(self._tf_data)
+
+        data = self._data
+
+        found = []
+        for k, v in data.items():
+            if v == value:
+                found.append(k)
+
+        self.FoundLabel.setText(f'Found: {len(found)} ({time.perf_counter() - start:.4f}s)')
+
+        self.display_result(list({n: self._data[n]} for n in found))
+
+    def scan_function(self):
+        self.update_gui(self.ResultTab.clear)
+
+        if self.ScanButton.text() == 'Scan':
+            # self.ScanButton.setText('Cancel')
+
+            self.update_gui(self.ScanButton.setEnabled, False)
+
+            if self.NameRadioButton.isChecked():
+                self.search_by_name(self.ScanInput.text())
+            else:
+                self.search_by_value(self.ScanInput.text())
+
+        # if self.ScanButton.text() == 'Cancel':
+        #     self.flattening_thread.kill()
+        #     self.ScanProgressBar.setValue(0)
+        #     self.scan_progress_bar_value = 0
+        #     self.change_progress_bar_state('normal')
+        #     self.ScanButton.setText('Scan')
+        #     return
+
+        # if not self.ScanInput.text():
+        #     QMessageBox.critical(self, 'Error', 'Please enter a search query')
+        #     return
+        # if not self.flattened_data:
+        #     self.ScanButton.setText('Cancel')
+        #     self.change_progress_bar_state('process')
+        #     self.flattening_thread = KillableThread(target=self.create_flattened_data, daemon=True)
+        #     self.flattening_thread.start()
+        #     return
         
-    #     self.ClearButton.setEnabled(False)
-    #     self.ScanButton.setEnabled(False)
-    #     if self.NameRadioButton.isChecked():
-    #         target = self.search_by_name
-    #     else:
-    #         target = self.search_by_value
+        # self.ClearButton.setEnabled(False)
+        # self.ScanButton.setEnabled(False)
+        # if self.NameRadioButton.isChecked():
+        #     target = self.search_by_name
+        # else:
+        #     target = self.search_by_value
 
-    #     search_slot = self.SearchLocationInput.currentIndex()
-    #     if self.flattening_thread.is_alive():
-    #         target(self.ScanInput.text(), search_slot)
-    #     else:
-    #         KillableThread(target=target, args=(self.ScanInput.text(), search_slot), daemon=True).start()
+        # search_slot = self.SearchLocationInput.currentIndex()
+        # if self.flattening_thread.is_alive():
+        #     target(self.ScanInput.text(), search_slot)
+        # else:
+        #     KillableThread(target=target, args=(self.ScanInput.text(), search_slot), daemon=True).start()
 
     # def search_by_name(self, name, search_slot=None):
     #     start = time.perf_counter()
@@ -384,29 +451,29 @@ class TyranoBrowser(TyranoBrowserUI):
 
     #     self.scan_function()
 
-    # def flatten(self, d, prefix=None):
-    #     result = dict()
-    #     for k, v in d.items():
-    #         if prefix:
-    #             name = f'{prefix}{k}'
-    #         else:
-    #             name = k
-    #         values = self._flatten(name, v)
-    #         result.update(values)
-    #     return result
+    def flatten(self, d, prefix=None):
+        result = dict()
+        for k, v in d.items():
+            if prefix:
+                name = f'{prefix}{k}'
+            else:
+                name = k
+            values = self._flatten(name, v)
+            result.update(values)
+        return result
 
-    # def _flatten(self, name, value):
-    #     if isinstance(value, list):
-    #         flat = dict()
-    #         for i, v in enumerate(value):
-    #             flat.update(self._flatten(f'{name}[{i}]', v))
-    #         return flat
-    #     elif isinstance(value, dict):
-    #         flat = dict()
-    #         for k, v in value.items():
-    #             flat.update(self._flatten(f'{name}.{k}', v))
-    #         return flat
-    #     return {name: value}
+    def _flatten(self, name, value):
+        if isinstance(value, list):
+            flat = dict()
+            for i, v in enumerate(value):
+                flat.update(self._flatten(f'{name}[{i}]', v))
+            return flat
+        elif isinstance(value, dict):
+            flat = dict()
+            for k, v in value.items():
+                flat.update(self._flatten(f'{name}.{k}', v))
+            return flat
+        return {name: value}
     
     # def _load_save_file(self):
     #     self.raw_data = self.backend.get_raw_data()
@@ -434,15 +501,30 @@ class TyranoBrowser(TyranoBrowserUI):
     #         print(worker.get_result())
     #         self.test_timer.disconnect(self.status_check)
 
-    # def open_save_file(self):
-    #     sav_loc = QFileDialog.getOpenFileName(self, 'Open Save File', filter='Tyrano Save Files (*.sav)')[0]
-    #     self.save_file_path = sav_loc
+    @thread.run_cdp_async_protocol
+    async def connect_to_game(self):
+        ws_url = await cdph.get_cdp_ws_url_async(9222, self.game.game, wait=True)
+        self.handler = cdph.CDPHandler(ws_url)
+        await self.handler.connect()
+        self.InfoLabel.setText(self.game.game_name)
 
-    #     self.test_timer = Timer(50)
-    #     self.test_timer.start()
-    #     # self.test_timer.setInterval(50)
-    #     self.backend.set_save_file(sav_loc)
-    #     self.backend.integrity_check(self.status_check)
+    @thread.threaded
+    def launch_game(self):
+        self.game.launch_game()
+
+    def open_save_file(self):
+        game_loc = QFileDialog.getOpenFileName(self, 'Open Game', filter='Executable (*.exe)')[0]
+        self.game = process.GameProcess(game_loc)
+        self.launch_game()
+        self.connect_to_game()
+        # sav_loc = QFileDialog.getOpenFileName(self, 'Open Save File', filter='Tyrano Save Files (*.sav)')[0]
+        # self.save_file_path = sav_loc
+
+        # self.test_timer = Timer(50)
+        # self.test_timer.start()
+        # # self.test_timer.setInterval(50)
+        # self.backend.set_save_file(sav_loc)
+        # self.backend.integrity_check(self.status_check)
         
     #     # TODO
     #     # 1. Show error window
