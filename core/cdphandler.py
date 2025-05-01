@@ -143,7 +143,11 @@ class CDPHandler(object):
 
     async def evaluate(self, expression, return_value: Optional[bool] = False) -> dict:
         result = await self.send(RuntimeMethods.EVALUATE, {"expression": expression, "returnByValue": return_value})
-        return result['result']['result']['value']
+        result = result['result']['result']
+        
+        if result['type'] == 'undefined':
+            return 'undefined'
+        return result['value']
 
     async def _get_value(self, key, value):
         result = dict()
