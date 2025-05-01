@@ -81,6 +81,8 @@ QSpinBox::up-arrow{
 QComboBox{
     margin-left: 0.3em;
     margin-right: 0.5em;
+    padding-left: 0.3em;
+    padding-right: 1em;
     padding-top: 0.25em;
     padding-bottom: 0.25em;
 
@@ -140,14 +142,24 @@ QTreeWidget{
     padding-left: 0.2em;
 }
 QTreeWidget::item{
-    padding-top: 0.1em;
-    padding-bottom: 0.1em;
+    padding-left: 0px;
+    padding-top: 0.2em;
+    padding-bottom: 0.2em;
 }
 QTreeWidget::item:hover{
     background-color: rgb(48, 48, 48);
 }
 QTreeWidget::item:selected{
-    background-color: rgb(64, 64, 64);
+    background-color: rgb(32, 32, 0);
+    color: rgb(224, 192, 56);
+}
+QTreeView::indicator:checked{
+    background-color: rgb(0, 224, 0);
+    border: 1px solid rgb(224, 224, 224);
+}
+QTreeView::indicator:unchecked{
+    background-color: rgb(32, 32, 32);
+    border: 1px solid rgb(160, 160, 160);
 }
 QTreeWidget::item:selected:!active{
     background-color: rgb(48, 48, 48);
