@@ -147,6 +147,8 @@ class CDPHandler(object):
         
         if result['type'] == 'undefined':
             return 'undefined'
+        elif result['type'] == 'object' and not return_value:
+            return result['objectId']
         return result['value']
 
     async def _get_value(self, key, value):
