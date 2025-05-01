@@ -164,9 +164,6 @@ QTreeView::indicator:unchecked{
 QTreeWidget::item:selected:!active{
     background-color: rgb(48, 48, 48);
 }
-QTreeWidget::item:!active{
-    color: rgb(255, 255, 255);
-}
 QHeaderView::section{
     border-top: none;
     border-bottom: none;
