@@ -103,7 +103,7 @@ class CDPHandler(object):
 
     async def close(self) -> None:
         self._active = False
-        await self._listener_task.cancel()
+        self._listener_task.cancel()
         await self.websocket.close()
     
     async def _listener(self) -> None:
@@ -140,6 +140,10 @@ class CDPHandler(object):
     async def get_properties(self, object_id) -> dict:
         result = await self.send(RuntimeMethods.GET_PROPERTIES,{"objectId": object_id, "ownProperties": True})
         return result['result']['result']
+
+    async def evaluate(self, expression, return_value: Optional[bool] = False) -> dict:
+        result = await self.send(RuntimeMethods.EVALUATE, {"expression": expression, "returnByValue": return_value})
+        return result['result']['result']['value']
 
     async def _get_value(self, key, value):
         result = dict()
@@ -200,9 +204,18 @@ class CDPHandler(object):
         return result
 
     async def get_value(self, expression) -> dict:
+        # NOTE
+        # Might abandon this method as for now, using evaluate is around
+        # 74x faster to get the same result.
+        # If later on it's not the case, then this method can be used
+        # for those specific cases instead.
         response = await self.send(RuntimeMethods.EVALUATE, {"expression": expression, "returnByValue": False})
 
-        object_id = response['result']['result']['objectId']
+        result = response['result']['result']
+        if 'value' in result:
+            return result['value']
+        
+        object_id = result['objectId']
         properties = await self.get_properties(object_id)
         
         data = dict()
