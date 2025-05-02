@@ -1,10 +1,10 @@
 from ui.widget import CustomEditTreeWidget, CustomCheckboxDelegate, CustomTreeWidget
 from ui.dialog import EditValueDialog
 
-from PySide2.QtCore import QMetaObject, QRect, QSize, Qt
 from PySide2.QtWidgets import (QMainWindow, QAction, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QLineEdit,
     QTreeWidgetItem, QProgressBar, QSizePolicy, QAbstractItemView, QPushButton, QSpacerItem, QRadioButton, QTabWidget,
     QGridLayout, QComboBox, QMenuBar, QMenu, QLayout, QTextEdit, QStackedWidget, QColorDialog, QMessageBox)
+from PySide2.QtCore import QMetaObject, QRect, QSize, Qt
 from PySide2.QtGui import QFont, QBrush
 
 import json
@@ -18,7 +18,7 @@ class TyranoBrowserUI(QMainWindow):
         font.setPointSize(9)
         self.setFont(font)
 
-        with open('ui/theme/default-dark/dark.qss') as file:
+        with open('theme/default-dark/dark.qss') as file:
             self.setStyleSheet(file.read())
             file.close()
 
@@ -547,7 +547,7 @@ class TyranoBrowserUI(QMainWindow):
             if name.exec_():
                 if not name.new_value:
                     return
-                self.add_item_to_value_list(name.new_value, 'path', 'undefined', self.ValueListWidget)
+                self.add_item_to_value_list(name.new_value, 'path', '??', self.ValueListWidget)
         elif action == create_header:
             name = EditValueDialog('Create Header', '', self)
             if name.exec_():
@@ -583,10 +583,13 @@ class TyranoBrowserUI(QMainWindow):
                 self,
                 'Confirm', f'Are you sure you want to delete {len(items)} {_item_text}?'
             )
-            if confirmation == QMessageBox.Yes:
-                for item in items:
-                    self.ValueListWidget.takeTopLevelItem(self.ValueListWidget.indexOfTopLevelItem(item))
-                    self._tree_list_items.remove(item)
+            if confirmation == QMessageBox.No:
+                return
+            for item in items:
+                # TODO potential crash if a group is deleted,
+                # since it is not inside the self._tree_list_items
+                self.ValueListWidget.takeTopLevelItem(self.ValueListWidget.indexOfTopLevelItem(item))
+                self._tree_list_items.remove(item)
         elif action == edit_sub_menu.actions()[0]:
             dialog = EditValueDialog('Change Name', items[0].text(0), self)
             if dialog.exec_():
@@ -625,12 +628,11 @@ class TyranoBrowserUI(QMainWindow):
             if name.exec_():
                 if not name.new_value:
                     return
-                self.add_item_to_value_list(name.new_value, 'path', 'undefined', self.ValueListWidget)
+                self.add_item_to_value_list(name.new_value, 'path', '??', self.ValueListWidget)
         elif action == create_header:
             name = EditValueDialog('Create Header', '', self)
             if name.exec_():
                 if not name.new_value:
                     return
                 QTreeWidgetItem(self.ValueListWidget, [name.new_value, '', ''])
-
 
