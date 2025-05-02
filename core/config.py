@@ -8,6 +8,9 @@ CONFIG_FILE = 'config.ini'
 DEFAULT_CONFIG = {
     'websocket': {
         'port': 9222
+    },
+    'app': {
+        'theme': 'default-dark'
     }
 }
 
@@ -35,10 +38,13 @@ def create_config() -> configparser.ConfigParser:
 def load_config() -> dict:
     parser = create_config()
     parser.read(CONFIG_FILE)
-    return {section: dict(parser.items(section)) for section in parser.sections()}
+    data = dict()
+    for section in parser.sections():
+        data[section] = dict((option, json.loads(value)) for option, value in parser.items(section))
+    return data
 
 
 def load_config_value(section: str, option: str) -> Union[str, int]:
     parser = create_config()
     parser.read(CONFIG_FILE)
-    return parser.get(section, option)
+    return json.loads(parser.get(section, option))
