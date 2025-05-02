@@ -146,7 +146,7 @@ class CDPHandler(object):
         result = result['result']['result']
         
         if result['type'] == 'undefined':
-            return 'undefined'
+            return '??'
         elif result['type'] == 'object' and not return_value:
             return result['objectId']
         return result['value']
