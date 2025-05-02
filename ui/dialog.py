@@ -3,10 +3,10 @@ from PySide2.QtCore import Qt
 
 
 class EditValueDialog(QDialog):
-    def __init__(self, header, value, parent=None):
+    def __init__(self, title, value, parent=None):
         super().__init__(parent)
         
-        self.setWindowTitle(f'Change {header}')
+        self.setWindowTitle(title)
         self.setWindowFlags(self.windowFlags() | Qt.Drawer)
 
         self.setModal(True)
