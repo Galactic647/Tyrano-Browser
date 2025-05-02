@@ -1,0 +1,6 @@
+{
+  "result.foreground.equal": "#FFFFFF",
+  "result.foreground.notequal": "#FF0000",
+  "result.foreground.lowerthan": "#FF0000",
+  "result.foreground.higherthan": "#6080FF"
+}
