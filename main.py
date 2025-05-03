@@ -280,7 +280,8 @@ class TyranoBrowser(TyranoBrowserUI):
         # Freezed items shouldn't get their value updated
 
         # TODO CRITICAL
-        # value can be undefined, we should never set an undefined value for whatever reason
+        # - value can be undefined, we should never set an undefined value for whatever reason
+        # - check what happen if a list is empty (e.g. stat.f.some_var = []) how would we query this
         general_items = result_items = paths = None
 
         while True:
