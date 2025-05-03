@@ -5,7 +5,7 @@ from PySide2.QtWidgets import (QMainWindow, QAction, QLabel, QWidget, QVBoxLayou
     QTreeWidgetItem, QProgressBar, QSizePolicy, QAbstractItemView, QPushButton, QSpacerItem, QRadioButton, QTabWidget,
     QGridLayout, QComboBox, QMenuBar, QMenu, QLayout, QTextEdit, QStackedWidget, QColorDialog, QMessageBox)
 from PySide2.QtCore import QMetaObject, QRect, QSize, Qt
-from PySide2.QtGui import QFont, QBrush
+from PySide2.QtGui import QFont, QBrush, QColor, QIcon
 
 import json
 
@@ -17,6 +17,7 @@ class TyranoBrowserUI(QMainWindow):
         font = QFont()
         font.setPointSize(9)
         self.setFont(font)
+        self.setWindowIcon(QIcon('resources/app-icon.ico'))
 
         with open('theme/default-dark/dark.qss') as file:
             self.setStyleSheet(file.read())
@@ -413,6 +414,10 @@ class TyranoBrowserUI(QMainWindow):
         self.SearchTypeInput.addItem('Changed value')
         self.SearchTypeInput.addItem('Unchanged value')
         self.SearchTypeInput.addItem('Ignore')
+        self.SearchTypeInput.addItem('Contains ...')
+        self.SearchTypeInput.addItem('Starts with...')
+        self.SearchTypeInput.addItem('Ends with...')
+        self.SearchTypeInput.addItem('Regex')
 
         self.FoundLabel.setText('Found: 0')
 
@@ -440,16 +445,6 @@ class TyranoBrowserUI(QMainWindow):
         self.ValueListsSection.setTabText(self.ValueListsSection.indexOf(self.ValueListTab), 'Value List')
         self.ValueListsSection.setTabText(self.ValueListsSection.indexOf(self.RawListTab), 'Raw List')
 
-        self.add_item_to_value_list('day', 'stat.f.day', 99, self.ValueListWidget)
-        self.add_item_to_value_list('kuchi', 'stat.f.kuchi', 'normal', self.ValueListWidget)
-        self.add_item_to_value_list('ring', 'stat.f.rng', True, self.ValueListWidget)
-
-        self.item = QTreeWidgetItem(self.ValueListWidget, ['Group 1', '', ''])
-        # item.setData(0, Qt.ForegroundRole, QColor(255, 0, 0))
-        
-        self.add_item_to_value_list('AP', 'stat.f.status[0][1]', 23, self.item)
-        self.add_item_to_value_list('Cash', 'stat.f.status[1][1]', 0, self.item)
-
     def _update_scan_by(self):
         if self.ValueRadioButton.isChecked():
             self.SearchTypeInput.setEnabled(True)
@@ -473,6 +468,7 @@ class TyranoBrowserUI(QMainWindow):
         item = QTreeWidgetItem(parent, [name, path, value])
         item.setFlags(item.flags() & ~Qt.ItemIsDropEnabled | Qt.ItemIsUserCheckable)
         item.setCheckState(0, Qt.Unchecked)
+        item.setForeground(0, QBrush(QColor(255, 255, 255)))
         self._tree_list_items.append(item)
 
     def rt_move_to_vl(self, index):
@@ -516,13 +512,20 @@ class TyranoBrowserUI(QMainWindow):
             for item in items:
                 self.add_item_to_value_list(item.text(0), item.text(3), item.text(1), self.ValueListWidget)
         elif action == change_value:
-            for item in items:
-                self.set_value(item.text(1), item.text(2))
+            dialog = EditValueDialog('Change Value', items[0].text(1), self)
+            if dialog.exec_():
+                if not dialog.new_value:
+                    return
+                for item in items:
+                    item.setText(1, dialog.new_value)
+                    self.set_value(item.text(3), dialog.new_value)
         elif action == change_value_to_previous:
-            pass
+            for item in items:
+                item.setText(1, item.text(2))
+                self.set_value(item.text(3), item.text(2))
         elif action == remove_selected:
             for item in items:
-                self._tree_list_items.remove(item)
+                self._rt_list_items.remove(item)
                 self.ResultTab.takeTopLevelItem(self.ResultTab.indexOfTopLevelItem(item))
 
     def vl_context_menu(self, position):
@@ -553,8 +556,25 @@ class TyranoBrowserUI(QMainWindow):
             if name.exec_():
                 if not name.new_value:
                     return
-                QTreeWidgetItem(self.ValueListWidget, [name.new_value, '', ''])
+                item = QTreeWidgetItem(self.ValueListWidget, [name.new_value, '', ''])
+                item.setForeground(0, QBrush(QColor(255, 255, 255)))
 
+    def _remove_vl_items(self, items):
+        for item in items:
+            parent = item.parent()
+            children = item.takeChildren()
+            is_group = True if not item.text(1) and not item.text(2) else False
+
+            if children:
+                self._remove_vl_items(children)
+
+            if parent is None:
+                self.ValueListWidget.takeTopLevelItem(self.ValueListWidget.indexOfTopLevelItem(item))
+            else:
+                self.ValueListWidget.removeChildItem(parent, item)
+
+            if not is_group:
+                self._tree_list_items.remove(item)
 
     def _vl_context_menu_item(self, items, position):
         menu = QMenu(self)
@@ -585,11 +605,7 @@ class TyranoBrowserUI(QMainWindow):
             )
             if confirmation == QMessageBox.No:
                 return
-            for item in items:
-                # TODO potential crash if a group is deleted,
-                # since it is not inside the self._tree_list_items
-                self.ValueListWidget.takeTopLevelItem(self.ValueListWidget.indexOfTopLevelItem(item))
-                self._tree_list_items.remove(item)
+            self._remove_vl_items(items)
         elif action == edit_sub_menu.actions()[0]:
             dialog = EditValueDialog('Change Name', items[0].text(0), self)
             if dialog.exec_():
@@ -634,5 +650,6 @@ class TyranoBrowserUI(QMainWindow):
             if name.exec_():
                 if not name.new_value:
                     return
-                QTreeWidgetItem(self.ValueListWidget, [name.new_value, '', ''])
-
+                item = QTreeWidgetItem(self.ValueListWidget, [name.new_value, '', ''])
+                item.setForeground(0, QBrush(QColor(255, 255, 255)))
+        
