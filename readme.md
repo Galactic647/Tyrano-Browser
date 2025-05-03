@@ -1,10 +1,8 @@
-# Tyrano Browser
+# Lucid Engine
 
-Tyrano browser is a simple tool that meant to function like [cheat engine](https://www.cheatengine.org). Unlike cheat engine that works directly with memory, tyrano browser utilize [Chrome Devtools Protocol](https://chromedevtools.github.io/devtools-protocol/) (CDP), which create a connection between the tool and the game using websocket which then can be used to edit/modify game variables.
+Lucid Engine is a simple tool that functions similarly to [cheat engine](https://www.cheatengine.org). But, unlike cheat engine that works directly with memory, tyrano browser utilize [Chrome Devtools Protocol](https://chromedevtools.github.io/devtools-protocol/) (CDP), which create a connection between the tool and the game using websocket which then can be used to edit/modify game variables.
 
 The code is currently bring rewritten almost from scratch due to the change in architecture, so the preview below are kind of outdated, but it still look somewhat similar.
-
-NOTE: First pre-release would be only a working scanner/editor.
 
 ![image](https://github.com/user-attachments/assets/9814c027-1e2a-4e73-8ce9-a48b904435a3)
 

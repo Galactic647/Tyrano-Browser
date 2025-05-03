@@ -1,6 +1,6 @@
 from core import thread, process, config, cdphandler as cdph, tablemanager as tm
 from core.cdphandler import TyranoVars
-from ui.ui import TyranoBrowserUI
+from ui.ui import LucidEngineUI
 
 from PySide2.QtWidgets import QApplication, QFileDialog, QTreeWidgetItem, QMessageBox
 from PySide2.QtGui import QBrush, QColor
@@ -13,7 +13,7 @@ import time
 import sys
 import os
 
-class TyranoBrowser(TyranoBrowserUI):
+class LucidEngine(LucidEngineUI):
     update_gui_signal = Signal(dict)
 
     def __init__(self):
@@ -245,6 +245,8 @@ class TyranoBrowser(TyranoBrowserUI):
                 value = json.dumps(value)
             it = QTreeWidgetItem(parent, [item['name'], item['path'], value])
             it.setForeground(0, QBrush(QColor(*item['color'])))
+            it.setForeground(1, QBrush(QColor(*item['color'])))
+            it.setForeground(2, QBrush(QColor(*item['color'])))
             if value and item['path']:
                 self._tree_list_items.append(it)
 
@@ -395,7 +397,7 @@ def main():
     app = QApplication(sys.argv)
     check_config()
 
-    window = TyranoBrowser()
+    window = LucidEngine()
     window.show()
     sys.exit(app.exec_())
 

@@ -9,9 +9,9 @@ from PySide2.QtGui import QFont, QBrush, QColor, QIcon
 
 import json
 
-class TyranoBrowserUI(QMainWindow):
+class LucidEngineUI(QMainWindow):
     def __init__(self, parent=None):
-        super(TyranoBrowserUI, self).__init__(parent)
+        super(LucidEngineUI, self).__init__(parent)
 
         self.resize(1111, 874)
         font = QFont()
@@ -40,7 +40,7 @@ class TyranoBrowserUI(QMainWindow):
         self.actionLoad_Table = QAction(self)
         self.actionSave_Logs = QAction(self)
 
-        self.actionTyrano_Browser_Tutorial = QAction(self)
+        self.actionLucid_Engine_Tutorial = QAction(self)
         self.actionCheck_For_Updates = QAction(self)
         self.actionAbout = QAction(self)
 
@@ -55,7 +55,7 @@ class TyranoBrowserUI(QMainWindow):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionSave_Logs)
 
-        self.menuHelp.addAction(self.actionTyrano_Browser_Tutorial)
+        self.menuHelp.addAction(self.actionLucid_Engine_Tutorial)
         self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.actionCheck_For_Updates)
         self.menuHelp.addAction(self.actionAbout)
@@ -375,7 +375,7 @@ class TyranoBrowserUI(QMainWindow):
         self.retranslate_ui()
 
     def retranslate_ui(self):
-        self.setWindowTitle('Tyrano Browser')
+        self.setWindowTitle('Lucid Engine')
 
         self.menuFile.setTitle('File')
         self.menuSettings.setTitle('Settings')
@@ -387,7 +387,7 @@ class TyranoBrowserUI(QMainWindow):
         self.actionLoad_Table.setText('Load Table...')
         self.actionSave_Logs.setText('Save Logs...')
 
-        self.actionTyrano_Browser_Tutorial.setText('Tyrano Browser Tutorial')
+        self.actionLucid_Engine_Tutorial.setText('Lucid Engine Tutorial')
         self.actionCheck_For_Updates.setText('Check For Updates')
         self.actionAbout.setText('About')
 
@@ -479,6 +479,7 @@ class TyranoBrowserUI(QMainWindow):
         self.add_item_to_value_list(item.text(0), item.text(3), item.text(1), self.ValueListWidget)
 
     def vl_edit_item_popup(self, item, column):
+        # TODO limit name length to 128 characters max
         header = self.ValueListWidget.headerItem().text(column)
         value = item.text(column)
 
