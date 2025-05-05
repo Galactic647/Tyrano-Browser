@@ -300,6 +300,7 @@ QScrollBar::sub-page:horizontal {
 }
 #FoundLabel{
     margin-left: 0.2em;
+    margin-bottom: 0.5em;
 }
 #ScanProgressBar,
 #ProcessProgressBar,
