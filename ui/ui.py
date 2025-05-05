@@ -1,41 +1,46 @@
 from ui.widget import CustomEditTreeWidget, CustomCheckboxDelegate, CustomTreeWidget
+from core.scanner import ScanGroup, ScanInputGroup, ValueType, ScanType
 from ui.dialog import EditValueDialog
 
 from PySide2.QtWidgets import (QMainWindow, QAction, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QLineEdit,
     QTreeWidgetItem, QProgressBar, QSizePolicy, QAbstractItemView, QPushButton, QSpacerItem, QRadioButton, QTabWidget,
-    QGridLayout, QComboBox, QMenuBar, QMenu, QLayout, QTextEdit, QStackedWidget, QColorDialog, QMessageBox)
+    QGridLayout, QComboBox, QMenuBar, QMenu, QLayout, QTextEdit, QCheckBox, QGroupBox, QStackedWidget, QColorDialog,
+    QMessageBox, QButtonGroup)
 from PySide2.QtCore import QMetaObject, QRect, QSize, Qt
 from PySide2.QtGui import QFont, QBrush, QColor, QIcon
 
 import json
+
 
 class LucidEngineUI(QMainWindow):
     def __init__(self, parent=None):
         super(LucidEngineUI, self).__init__(parent)
 
         self.resize(1111, 874)
-        font = QFont()
-        font.setPointSize(9)
-        self.setFont(font)
         self.setWindowIcon(QIcon('resources/app-icon.ico'))
 
         with open('theme/default-dark/dark.qss') as file:
             self.setStyleSheet(file.read())
             file.close()
 
+        segoe_ui_9 = QFont()
+        segoe_ui_9.setFamily('Segoe UI')
+        segoe_ui_9.setPointSize(9)
+
         self.centralwidget = QWidget(self)
         self.setCentralWidget(self.centralwidget)
 
         # ----- Menu Bar -----
         self.menubar = QMenuBar(self)
-        self.menubar.setGeometry(QRect(0, 0, 1693, 21))
+        self.menubar.setGeometry(QRect(0, 0, 1539, 19))
         self.menuFile = QMenu(self.menubar)
         self.menuSettings = QMenu(self.menubar)
         self.menuHelp = QMenu(self.menubar)
         self.setMenuBar(self.menubar)
 
         self.actionLaunch_Game = QAction(self)
-        self.actionStop_Game = QAction(self)
+        self.actionClose_Game = QAction(self)
+
         self.actionSave_Table = QAction(self)
         self.actionLoad_Table = QAction(self)
         self.actionSave_Logs = QAction(self)
@@ -49,6 +54,7 @@ class LucidEngineUI(QMainWindow):
         self.menubar.addAction(self.menuHelp.menuAction())
 
         self.menuFile.addAction(self.actionLaunch_Game)
+        self.menuFile.addAction(self.actionClose_Game)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionSave_Table)
         self.menuFile.addAction(self.actionLoad_Table)
@@ -62,35 +68,37 @@ class LucidEngineUI(QMainWindow):
 
         # ----- Main Container -----
         self.BaseVLayoutWidget = QWidget(self.centralwidget)
-        self.BaseVLayoutWidget.setGeometry(QRect(0, 10, 1111, 831))
+        self.BaseVLayoutWidget.setGeometry(QRect(0, 10, 1111, 901))
 
         self.MainContainer = QVBoxLayout(self.centralwidget)
         self.MainContainer.setContentsMargins(0, 0, 0, 0)
         self.MainContainer.addWidget(self.BaseVLayoutWidget)
 
         self.InfoLabel = QLabel(self.BaseVLayoutWidget)
-        self.InfoLabel.setFont(font)
         self.InfoLabel.setAlignment(Qt.AlignCenter)
         self.MainContainer.addWidget(self.InfoLabel)
 
+
         # ----- Actions Section -----
         self.ActionsSection = QTabWidget(self.BaseVLayoutWidget)
-        self.ActionsSection.setFont(font)
+
 
         # ----- Tab Widget - Scan Tab -----
         self.ScanTab = QWidget()
         self.ScanTabVLayoutWidget = QWidget(self.ScanTab)
-        self.ScanTabVLayoutWidget.setGeometry(QRect(0, 0, 1101, 361))
+        self.ScanTabVLayoutWidget.setGeometry(QRect(0, 0, 1111, 401))
         self.ScanActionBaseContainer = QVBoxLayout(self.ScanTab)
         self.ScanActionBaseContainer.setContentsMargins(0, 0, 0, 0)
 
-        # ----- Tab Widget - Scan Tab - Scan Progress Bar -----
+        # ----- Tab Widget - Scan Tab - Progress Bar -----
         self.ScanProgressBar = QProgressBar(self.ScanTabVLayoutWidget)
         self.ScanProgressBar.setObjectName('ScanProgressBar')
         self.ScanProgressBar.setTextVisible(False)
         self.ScanActionBaseContainer.addWidget(self.ScanProgressBar)
 
         # ----- Tab Widget - Scan Tab - Result Section -----
+        self.ScanWidgetsContainer = QGridLayout()  # CHECK check later
+
         self.ResultTab = QTreeWidget(self.ScanTabVLayoutWidget)
 
         sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -100,7 +108,6 @@ class LucidEngineUI(QMainWindow):
         self.ResultTab.setSizePolicy(sizePolicy)
 
         self.ResultTab.setMinimumSize(QSize(700, 0))
-        self.ResultTab.setFont(font)
         self.ResultTab.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.ResultTab.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.ResultTab.setSortingEnabled(False)
@@ -109,10 +116,11 @@ class LucidEngineUI(QMainWindow):
         self.ResultTab.setExpandsOnDoubleClick(False)
         self.ResultTab.setAllColumnsShowFocus(True)
         self.ResultTab.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.ResultTab.doubleClicked.connect(self.rt_move_to_vl)
-        self.ResultTab.customContextMenuRequested.connect(self.rt_context_menu)
+        # self.ResultTab.doubleClicked.connect(self.rt_move_to_vl)
+        # self.ResultTab.customContextMenuRequested.connect(self.rt_context_menu)
+        self.ScanWidgetsContainer.addWidget(self.ResultTab, 0, 0, 1, 1)
 
-        # ----- Tab Widget - Scan Tab - Scan Option Section -----
+        # ----- Tab Widget - Scan Tab - Scan Options Section -----
         self.ScanActionContainer = QVBoxLayout()
         self.ScanActionContainer.setSizeConstraint(QLayout.SetFixedSize)
 
@@ -121,28 +129,31 @@ class LucidEngineUI(QMainWindow):
         self.ScanButtonContainer.setContentsMargins(5, -1, 8, -1)
 
         self.ScanButton = QPushButton(self.ScanTabVLayoutWidget)
-        self.ScanButton.setFont(font)
         self.ScanButtonContainer.addWidget(self.ScanButton, 0, 0, 1, 1)
+        self.ScanButton.setFixedSize(QSize(80, 22))
 
         self.ClearButton = QPushButton(self.ScanTabVLayoutWidget)
+        self.ClearButton.setFixedSize(QSize(80, 22))
         self.ClearButton.setEnabled(False)
-        self.ClearButton.setFont(font)
         self.ScanButtonContainer.addWidget(self.ClearButton, 0, 1, 1, 1)
 
+        self.ClearUndoSpacer = QSpacerItem(100, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.ScanButtonContainer.addItem(self.ClearUndoSpacer, 0, 2, 1, 1)
+
         self.UndoButton = QPushButton(self.ScanTabVLayoutWidget)
+        self.UndoButton.setFixedSize(QSize(80, 22))
         self.UndoButton.setEnabled(False)
-        self.UndoButton.setFont(font)
-        self.ScanButtonContainer.addWidget(self.UndoButton, 0, 2, 1, 1)
+
+        self.ScanButtonContainer.addWidget(self.UndoButton, 0, 3, 1, 1)
         self.ScanActionContainer.addLayout(self.ScanButtonContainer)
 
         self.ScanInputContainer = QStackedWidget(self.ScanTabVLayoutWidget)
-        self.ScanInputContainer.resize(301, 31)
 
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.ScanInputContainer.sizePolicy().hasHeightForWidth())
-        self.ScanInputContainer.setSizePolicy(sizePolicy)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.ScanInputContainer.sizePolicy().hasHeightForWidth())
+        self.ScanInputContainer.setSizePolicy(sizePolicy1)
         self.ScanInputContainer.setMinimumSize(QSize(0, 28))
 
         self.NormalScanPage = QWidget()
@@ -151,93 +162,199 @@ class LucidEngineUI(QMainWindow):
         self.NormalScanPageContainer.setContentsMargins(0, 0, 0, 0)
 
         self.ScanInput = QLineEdit(self.NormalScanPageLayoutWidget)
-        self.ScanInput.setFont(font)
-        self.ScanInput.returnPressed.connect(self.ScanButton.click)
         self.NormalScanPageContainer.addWidget(self.ScanInput)
         self.ScanInputContainer.addWidget(self.NormalScanPage)
 
-        self.DoubleInputScanPage = QWidget()
-        self.DoubleInputScanPageLayoutWidget = QWidget(self.DoubleInputScanPage)
-        self.DoubleInputScanPageLayoutWidget.setGeometry(QRect(0, 0, 365, 31))
-        self.DoubleInputScanPageContainer = QGridLayout(self.DoubleInputScanPage)
-        self.DoubleInputScanPageContainer.setContentsMargins(0, 0, 0, 0)
+        self.DualInputScanPage = QWidget()
+        self.DualInputScanPageContainer = QWidget(self.DualInputScanPage)
+        # self.DualInputScanPageContainer.setGeometry(QRect(0, 0, 401, 26))
+        self.ScanInputDualContainer = QGridLayout(self.DualInputScanPage)
+        self.ScanInputDualContainer.setContentsMargins(0, 0, 0, 0)
 
-        self.ScanInputA = QLineEdit(self.DoubleInputScanPageLayoutWidget)
-        self.ScanInputA.setFont(font)
-        self.DoubleInputScanPageContainer.addWidget(self.ScanInputA, 0, 0, 1, 1)
+        self.ScanInputA = QLineEdit(self.DualInputScanPageContainer)
+        self.ScanInputDualContainer.addWidget(self.ScanInputA, 0, 0, 1, 1)
 
-        self.SearchAndLabel = QLabel(self.DoubleInputScanPageLayoutWidget)
-        self.SearchAndLabel.setFont(font)
+        self.SearchAndLabel = QLabel(self.DualInputScanPageContainer)
         self.SearchAndLabel.setAlignment(Qt.AlignCenter)
-        self.DoubleInputScanPageContainer.addWidget(self.SearchAndLabel, 0, 1, 1, 1)
 
-        self.ScanInputB = QLineEdit(self.DoubleInputScanPageLayoutWidget)
-        self.ScanInputB.setFont(font)
-        self.ScanInputA.returnPressed.connect(self.ScanInputB.setFocus)
-        self.ScanInputB.returnPressed.connect(self.ScanButton.click)
-        self.DoubleInputScanPageContainer.addWidget(self.ScanInputB, 0, 2, 1, 1)
-        self.ScanInputContainer.addWidget(self.DoubleInputScanPage)
+        self.ScanInputB = QLineEdit(self.DualInputScanPageContainer)
+        self.ScanInputDualContainer.addWidget(self.ScanInputB, 0, 2, 1, 1)
+
+        self.ScanInputDualContainer.addWidget(self.SearchAndLabel, 0, 1, 1, 1)
+        self.ScanInputContainer.addWidget(self.DualInputScanPage)
 
         self.IgnoreInputScanPage = QWidget()
         self.ScanInputContainer.addWidget(self.IgnoreInputScanPage)
         self.ScanActionContainer.addWidget(self.ScanInputContainer)
 
-        self.ScanActionVSpacerScan2SB = QSpacerItem(20, 5, QSizePolicy.Minimum, QSizePolicy.Maximum)
-        self.ScanActionContainer.addItem(self.ScanActionVSpacerScan2SB)
-
-        self.SearchByContainer = QHBoxLayout()
-        self.SearchByContainer.setContentsMargins(10, -1, 5, -1)
+        self.ScanFullOptionsContainer = QVBoxLayout()
+        self.ScanByContainer = QHBoxLayout()
+        self.ScanByContainer.setContentsMargins(10, -1, 5, -1)
 
         self.SearchByLabel = QLabel(self.ScanTabVLayoutWidget)
-        self.SearchByLabel.setFont(font)
-        self.SearchByContainer.addWidget(self.SearchByLabel)
+        self.ScanByContainer.addWidget(self.SearchByLabel)
 
         self.ValueRadioButton = QRadioButton(self.ScanTabVLayoutWidget)
-        self.ValueRadioButton.setFont(font)
         self.ValueRadioButton.setChecked(True)
-        self.SearchByContainer.addWidget(self.ValueRadioButton)
-        self.ValueRadioButton.toggled.connect(self._update_scan_by)
+        self.ScanByContainer.addWidget(self.ValueRadioButton)
 
         self.NameRadioButton = QRadioButton(self.ScanTabVLayoutWidget)
-        self.NameRadioButton.setFont(font)
-        self.SearchByContainer.addWidget(self.NameRadioButton)
+        self.ScanByContainer.addWidget(self.NameRadioButton)
 
-        self.SearchByHSpacerRight = QSpacerItem(50, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
-        self.SearchByContainer.addItem(self.SearchByHSpacerRight)
+        self.SearchByHSpacer = QSpacerItem(100, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
+        self.ScanByContainer.addItem(self.SearchByHSpacer)
 
-        self.ScanActionContainer.addLayout(self.SearchByContainer)
+        self.ScanFullOptionsContainer.addLayout(self.ScanByContainer)
 
-        self.ScanActionVSpacerSearchBy2SI = QSpacerItem(20, 5, QSizePolicy.Minimum, QSizePolicy.Maximum)
-        self.ScanActionContainer.addItem(self.ScanActionVSpacerSearchBy2SI)
+        self.ScanOptionsMainExtraContainer = QHBoxLayout()
+        self.ScanMainOptionsContainer = QVBoxLayout()
 
         self.SearchConstraintContainer = QGridLayout()
         self.SearchConstraintContainer.setContentsMargins(6, -1, -1, -1)
 
-        self.SearchTypeInput = QComboBox(self.ScanTabVLayoutWidget)
-        self.SearchTypeInput.setFont(font)
-        self.SearchConstraintContainer.addWidget(self.SearchTypeInput, 0, 1, 1, 1)
-        self.SearchTypeInput.currentIndexChanged.connect(self._update_scan_type)
-
         self.SearchTypeLabel = QLabel(self.ScanTabVLayoutWidget)
-        self.SearchTypeLabel.setFont(font)
         self.SearchTypeLabel.setObjectName('SearchTypeLabel')
-        self.SearchConstraintContainer.addWidget(self.SearchTypeLabel, 0, 0, 1, 1)
+        self.SearchConstraintContainer.addWidget(self.SearchTypeLabel, 0, 2, 1, 1)
 
-        self.SearchInHSpacer = QSpacerItem(150, 20, QSizePolicy.Maximum, QSizePolicy.Minimum)
-        self.SearchConstraintContainer.addItem(self.SearchInHSpacer, 0, 2, 1, 1)
-        self.ScanActionContainer.addLayout(self.SearchConstraintContainer)
+        self.SearchTypeInput = QComboBox(self.ScanTabVLayoutWidget)
+        self.SearchTypeInput.setMaxVisibleItems(20)
+        self.SearchConstraintContainer.addWidget(self.SearchTypeInput, 0, 3, 1, 1)
 
-        self.ScanActionVSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        self.ScanActionContainer.addItem(self.ScanActionVSpacer)
+        self.ValueTypeLabel = QLabel(self.ScanTabVLayoutWidget)
+        self.ValueTypeLabel.setObjectName('ValueTypeLabel')
+        self.SearchConstraintContainer.addWidget(self.ValueTypeLabel, 1, 2, 1, 1)
+
+        self.ValueTypeInput = QComboBox(self.ScanTabVLayoutWidget)
+        self.SearchConstraintContainer.addWidget(self.ValueTypeInput, 1, 3, 1, 1)
+
+        self.SearchConstraintContainer.setColumnStretch(3, 1)
+        self.ScanMainOptionsContainer.addLayout(self.SearchConstraintContainer)
+
+        self.ScanOptionsBox = QGroupBox(self.ScanTabVLayoutWidget)
+
+        self.ScanOptionBoxMainContainer = QVBoxLayout(self.ScanOptionsBox)
+
+        self.TimeoutContainer = QGridLayout()
+
+        self.TimeoutLabel = QLabel(self.ScanOptionsBox)
+        self.TimeoutContainer.addWidget(self.TimeoutLabel, 0, 0, 1, 1)
+
+        self.TimeoutInput = QLineEdit(self.ScanOptionsBox)
+        self.TimeoutContainer.addWidget(self.TimeoutInput, 0, 1, 1, 1)
+        self.ScanOptionBoxMainContainer.addLayout(self.TimeoutContainer)
+
+        self.SearchRootContainer = QGridLayout()
+
+        self.SearchRootLabel = QLabel(self.ScanOptionsBox)
+        self.SearchRootContainer.addWidget(self.SearchRootLabel, 1, 0, 1, 1)
+
+        self.SearchRootF = QCheckBox(self.ScanOptionsBox)
+        self.SearchRootF.setChecked(True)
+        self.SearchRootContainer.addWidget(self.SearchRootF, 1, 1, 1, 1)
+
+        self.SearchRootTF = QCheckBox(self.ScanOptionsBox)
+        self.SearchRootTF.setChecked(True)
+        self.SearchRootContainer.addWidget(self.SearchRootTF, 1, 2, 1, 1)
+
+
+        self.SearchRootSF = QCheckBox(self.ScanOptionsBox)
+        self.SearchRootContainer.addWidget(self.SearchRootSF, 1, 3, 1, 1)
+
+        # Disabled due to lack of samples
+        self.SearchRootMP = QCheckBox(self.ScanOptionsBox)
+        self.SearchRootMP.setEnabled(False)
+        self.SearchRootMP.setCheckable(False)
+        self.SearchRootContainer.addWidget(self.SearchRootMP, 1, 4, 1, 1)
+
+        self.ScanOptionBoxMainContainer.addLayout(self.SearchRootContainer)
+
+        self.SearchOptionsFineTuneContainer = QGridLayout()
+
+        self.SearchWritable = QCheckBox(self.ScanOptionsBox)
+        self.SearchWritable.setChecked(True)
+        self.SearchOptionsFineTuneContainer.addWidget(self.SearchWritable, 0, 0, 1, 1)
+
+        self.SearchReadOnly = QCheckBox(self.ScanOptionsBox)
+        self.SearchOptionsFineTuneContainer.addWidget(self.SearchReadOnly, 2, 0, 1, 1)
+
+        self.SearchNullValues = QCheckBox(self.ScanOptionsBox)
+        self.SearchOptionsFineTuneContainer.addWidget(self.SearchNullValues, 3, 0, 1, 1)
+
+        self.PollingOptionGroup = QButtonGroup(self.ScanOptionsBox)
+        self.PollingOptionGroup.setExclusive(True)
+
+        self.SearchLazyPolling = QCheckBox(self.ScanOptionsBox)
+        self.SearchOptionsFineTuneContainer.addWidget(self.SearchLazyPolling, 0, 1, 1, 1)
+        self.PollingOptionGroup.addButton(self.SearchLazyPolling, 0)
+
+        self.SearchNoPolling = QCheckBox(self.ScanOptionsBox)
+        self.SearchOptionsFineTuneContainer.addWidget(self.SearchNoPolling, 2, 1, 1, 1)
+        self.PollingOptionGroup.addButton(self.SearchNoPolling, 1)
+
+        self.ScanOptionBoxMainContainer.addLayout(self.SearchOptionsFineTuneContainer)
+        self.ScanMainOptionsContainer.addWidget(self.ScanOptionsBox)
+        self.ScanOptionsMainExtraContainer.addLayout(self.ScanMainOptionsContainer)
+
+        self.ScanExtraOptions = QStackedWidget(self.ScanTabVLayoutWidget)
+
+        self.StringExtraOptionsContainerWidget = QWidget()
+        self.StringExtraOptionsContainer = QVBoxLayout(self.StringExtraOptionsContainerWidget)
+
+        self.SearchVTXOSTRContainer = QGridLayout()
+
+        self.StringUTF16 = QCheckBox(self.StringExtraOptionsContainerWidget)
+        self.SearchVTXOSTRContainer.addWidget(self.StringUTF16, 0, 0, 1, 1)
+
+        self.StringCaseSensitive = QCheckBox(self.StringExtraOptionsContainerWidget)
+        self.StringCaseSensitive.setChecked(True)
+        self.SearchVTXOSTRContainer.addWidget(self.StringCaseSensitive, 1, 0, 1, 1)
+
+        self.StringRegex = QCheckBox(self.StringExtraOptionsContainerWidget)
+        self.SearchVTXOSTRContainer.addWidget(self.StringRegex, 2, 0, 1, 1)
+
+        self.SearchVTX0Spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.SearchVTXOSTRContainer.addItem(self.SearchVTX0Spacer, 3, 0, 1, 1)
+
+        self.StringExtraOptionsContainer.addLayout(self.SearchVTXOSTRContainer)
+        self.ScanExtraOptions.addWidget(self.StringExtraOptionsContainerWidget)
+
+        self.FloatExtraOptionsContainerWidget = QWidget()
+        self.FloatExtraOptionsContainer = QVBoxLayout(self.FloatExtraOptionsContainerWidget)
+
+        self.SearchVTXOFContainer = QVBoxLayout()
+
+        self.FloatTruncated = QCheckBox(self.FloatExtraOptionsContainerWidget)
+        self.SearchVTXOFContainer.addWidget(self.FloatTruncated)
+
+        self.FloatRounded = QCheckBox(self.FloatExtraOptionsContainerWidget)
+        self.FloatRounded.setChecked(True)
+        self.SearchVTXOFContainer.addWidget(self.FloatRounded)
+
+        self.SearchVTXOFSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.SearchVTXOFContainer.addItem(self.SearchVTXOFSpacer)
+
+        self.FloatExtraOptionsContainer.addLayout(self.SearchVTXOFContainer)
+        self.ScanExtraOptions.addWidget(self.FloatExtraOptionsContainerWidget)
+
+        self.NoExtraOptionsContainerWidget = QWidget()
+        self.ScanExtraOptions.addWidget(self.NoExtraOptionsContainerWidget)
+        self.ScanOptionsMainExtraContainer.addWidget(self.ScanExtraOptions)
+
+        self.ScanOptionsMainExtraContainer.setStretch(0, 1)
+
+        self.ScanFullOptionsContainer.addLayout(self.ScanOptionsMainExtraContainer)
+
+        self.ScanOptionsFoundSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        self.ScanFullOptionsContainer.addItem(self.ScanOptionsFoundSpacer)
 
         self.FoundLabel = QLabel(self.ScanTabVLayoutWidget)
-        self.FoundLabel.setFont(font)
         self.FoundLabel.setObjectName('FoundLabel')
-        self.ScanActionContainer.addWidget(self.FoundLabel)
+        self.ScanFullOptionsContainer.addWidget(self.FoundLabel)
 
-        self.ScanWidgetsContainer = QGridLayout()
-        self.ScanWidgetsContainer.addWidget(self.ResultTab, 0, 0, 1, 1)
+        self.ScanActionContainer.addLayout(self.ScanFullOptionsContainer)
         self.ScanWidgetsContainer.addLayout(self.ScanActionContainer, 0, 1, 1, 1)
+        self.ScanWidgetsContainer.setColumnStretch(1, 0)
         self.ScanWidgetsContainer.setColumnStretch(0, 1)
         self.ScanActionBaseContainer.addLayout(self.ScanWidgetsContainer)
 
@@ -250,22 +367,21 @@ class LucidEngineUI(QMainWindow):
         self.LogTabHLayoutContainer = QVBoxLayout(self.LogTab)
         self.LogTabHLayoutContainer.setContentsMargins(0, 0, 0, 0)
 
-        self.LogLineEdit = QTextEdit(self.LogTabHLayoutWidget)
-        self.LogLineEdit.setReadOnly(True)
-        self.LogLineEdit.setFocusPolicy(Qt.NoFocus)
-        self.LogTabHLayoutContainer.addWidget(self.LogLineEdit)
+        self.Logs = QTextEdit(self.LogTabHLayoutWidget)
+        self.Logs.setReadOnly(True)
+        self.Logs.setFocusPolicy(Qt.NoFocus)
+        self.LogTabHLayoutContainer.addWidget(self.Logs)
 
         self.ActionsSection.addTab(self.LogTab, '')
 
         self.MainContainer.addWidget(self.ActionsSection)
 
-        # ----- Intermediate Widget Area -----
-        self.IntermediateSpacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Fixed)
-        self.MainContainer.addItem(self.IntermediateSpacer)
+        # ----- Intermediate Widget Area ------
+        self.SVSpacerMiddle = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        self.MainContainer.addItem(self.SVSpacerMiddle)
 
         # ---- Value List Section -----
         self.ValueListsSection = QTabWidget(self.BaseVLayoutWidget)
-        self.ValueListsSection.setFont(font)
 
         # ----- Tab Widget - Value List Tab -----
         self.ValueListTab = QWidget()
@@ -285,8 +401,6 @@ class LucidEngineUI(QMainWindow):
         self.ValueListWidget.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.ValueListWidget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.ValueListWidget.setItemDelegateForColumn(0, CustomCheckboxDelegate(parent=self.ValueListWidget))
-        self.ValueListWidget.customContextMenuRequested.connect(self.vl_context_menu)
-        self.ValueListWidget.itemDoubleClicked.connect(self.vl_edit_item_popup)
         self.ValueListContainer.addWidget(self.ValueListWidget)
 
         self.ValueListsSection.addTab(self.ValueListTab, '')
@@ -322,7 +436,6 @@ class LucidEngineUI(QMainWindow):
 
         self.LoadButton = QPushButton(self.ManualLoadPageLayoutWidget)
         self.LoadButton.setObjectName('LoadButton')
-        self.LoadButton.setFont(font)
         self.LoadButtonContainer.addWidget(self.LoadButton, 1, 1, 1, 1)
 
         self.LoadButtonSpacerBottom = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -344,7 +457,6 @@ class LucidEngineUI(QMainWindow):
 
         self.UnloadButton = QPushButton(self.RawListPageVLayoutWidget)
         self.UnloadButton.setObjectName('UnloadButton')
-        self.UnloadButton.setFont(font)
         self.RawListContainer.addWidget(self.UnloadButton)
 
         self.RawListWidget = CustomEditTreeWidget([0], self.RawListPageVLayoutWidget)
@@ -361,7 +473,14 @@ class LucidEngineUI(QMainWindow):
 
         self.MainContainer.addWidget(self.ValueListsSection)
 
-        self.ScanInputContainer.setCurrentIndex(1)
+        self.ScanInputContainer.setCurrentIndex(0)
+
+        self.retranslate_ui()
+        
+        self.adjustStackSize()
+        self.ScanExtraOptions.setCurrentIndex(2)
+
+        self.connects()
 
         QMetaObject.connectSlotsByName(self)
 
@@ -371,9 +490,23 @@ class LucidEngineUI(QMainWindow):
         self._pause_polling = False
         self._polling_paused = False
         self._connected = False
-
-        self.retranslate_ui()
-
+    
+    def adjustStackSize(self):
+        max_width = max_height = 0
+        
+        for i in range(self.ScanExtraOptions.count()):
+            self.ScanExtraOptions.setCurrentIndex(i)
+            self.ScanExtraOptions.updateGeometry()
+            width = self.ScanExtraOptions.currentWidget().sizeHint().width()
+            height = self.ScanExtraOptions.currentWidget().sizeHint().height()
+            if width > max_width:
+                max_width = width
+            if height > max_height:
+                max_height = height
+        
+        max_width += 20  # Account for checkbox box size
+        self.ScanExtraOptions.setMinimumSize(max_width, max_height)
+        
     def retranslate_ui(self):
         self.setWindowTitle('Lucid Engine')
 
@@ -382,11 +515,12 @@ class LucidEngineUI(QMainWindow):
         self.menuHelp.setTitle('Help')
 
         self.actionLaunch_Game.setText('Launch Game..')
-        self.actionStop_Game.setText('Stop Game')
+        self.actionClose_Game.setText('Close Game')
+
         self.actionSave_Table.setText('Save Table...')
         self.actionLoad_Table.setText('Load Table...')
         self.actionSave_Logs.setText('Save Logs...')
-
+        
         self.actionLucid_Engine_Tutorial.setText('Lucid Engine Tutorial')
         self.actionCheck_For_Updates.setText('Check For Updates')
         self.actionAbout.setText('About')
@@ -396,38 +530,50 @@ class LucidEngineUI(QMainWindow):
         self.ClearButton.setText('Clear')
         self.UndoButton.setText('Undo')
         self.SearchAndLabel.setText('and ')
+
         self.SearchByLabel.setText('Scan by')
         self.ValueRadioButton.setText('Value')
         self.NameRadioButton.setText('Name')
 
         self.SearchTypeLabel.setText('Scan type')
+        self.SearchTypeInput.addItems(ScanGroup.FIRST_SCAN)
 
-        self.SearchTypeInput.addItem('Exact value')
-        self.SearchTypeInput.addItem('Bigger than...')
-        self.SearchTypeInput.addItem('Smaller than...')
-        self.SearchTypeInput.addItem('Between...')
-        self.SearchTypeInput.addItem('Unknown')
-        self.SearchTypeInput.addItem('Increased value')
-        self.SearchTypeInput.addItem('Increased by...')
-        self.SearchTypeInput.addItem('Decreased value')
-        self.SearchTypeInput.addItem('Decreased by...')
-        self.SearchTypeInput.addItem('Changed value')
-        self.SearchTypeInput.addItem('Unchanged value')
-        self.SearchTypeInput.addItem('Ignore')
-        self.SearchTypeInput.addItem('Contains ...')
-        self.SearchTypeInput.addItem('Starts with...')
-        self.SearchTypeInput.addItem('Ends with...')
-        self.SearchTypeInput.addItem('Regex')
+        self.ValueTypeLabel.setText('Value type')
+        self.ValueTypeInput.addItems(ValueType.ALL)
 
         self.FoundLabel.setText('Found: 0')
 
         self.LoadButton.setText('Load')
         self.UnloadButton.setText('Unload')
 
-        self.ResultTab.setHeaderLabels(['Variable', 'Value', 'Previous', 'Path'])
+        self.StringCaseSensitive.setText('Case sensitive')
+        self.StringUTF16.setText('UTF-16')
+        self.StringRegex.setText('Regex')
+        
+        self.FloatTruncated.setText('Truncated')
+        self.FloatRounded.setText('Rounded')
 
-        for i in range(self.ResultTab.columnCount()):
-            self.ResultTab.header().resizeSection(i, 180)
+        self.ScanOptionsBox.setTitle('Scan Options')
+        self.TimeoutLabel.setText('Timeout')
+        self.TimeoutInput.setText('5')
+
+        self.SearchRootLabel.setText('Search root:     ')
+        self.SearchRootF.setText('f')
+        self.SearchRootTF.setText('tf')
+        self.SearchRootSF.setText('sf')
+        self.SearchRootMP.setText('mp')
+
+        self.SearchWritable.setText('Writable')
+        self.SearchReadOnly.setText('Read-only')
+        self.SearchNullValues.setText('Null values')
+        self.SearchLazyPolling.setText('Lazy polling')
+        self.SearchNoPolling.setText('No polling')
+
+        self.ResultTab.setHeaderLabels(['Variable', 'Value', 'Previous', 'First', 'Path'])
+        sizes = [150, 120, 120, 120, 150]
+
+        for s, i in zip(sizes, range(len(sizes))):
+            self.ResultTab.setColumnWidth(i, s)
 
         self.ValueListWidget.setHeaderLabels(['Description', 'Path', 'Value'])
 
@@ -438,27 +584,40 @@ class LucidEngineUI(QMainWindow):
 
         for i in range(self.RawListWidget.columnCount()):
             self.RawListWidget.header().resizeSection(i, 300)
-
+        
         self.ActionsSection.setTabText(self.ActionsSection.indexOf(self.ScanTab), 'Scan')
         self.ActionsSection.setTabText(self.ActionsSection.indexOf(self.LogTab), 'Logs')
-
+        
         self.ValueListsSection.setTabText(self.ValueListsSection.indexOf(self.ValueListTab), 'Value List')
         self.ValueListsSection.setTabText(self.ValueListsSection.indexOf(self.RawListTab), 'Raw List')
 
-    def _update_scan_by(self):
-        if self.ValueRadioButton.isChecked():
-            self.SearchTypeInput.setEnabled(True)
-            self._update_scan_type()
-        else:
-            self.SearchTypeInput.setEnabled(False)
-            self.ScanInputContainer.setCurrentIndex(0)
+    def connects(self):
+        self.ValueTypeInput.currentIndexChanged.connect(self._value_type_on_change)
+        self.SearchTypeInput.currentIndexChanged.connect(self._scan_type_on_change)
 
-    def _update_scan_type(self):
-        no_input = ['Unknown', 'Ignore', 'Increased value', 'Decreased value', 'Changed value', 'Unchanged value']
-        if self.SearchTypeInput.currentText() in no_input:
-            self.ScanInputContainer.setCurrentIndex(2)
-        elif self.SearchTypeInput.currentText() == 'Between...':
+    def _value_type_on_change(self, index):
+        self.SearchTypeInput.clear()
+
+        if index == 0:  # Integers
+            self.ScanExtraOptions.setCurrentIndex(2)
+            self.SearchTypeInput.addItems(ScanGroup.FIRST_SCAN)
+        elif index == 1:  # Float
+            self.ScanExtraOptions.setCurrentIndex(1)
+            self.SearchTypeInput.addItems(ScanGroup.FIRST_SCAN)
+        elif index == 2:  # String
+            self.ScanExtraOptions.setCurrentIndex(0)
+            self.SearchTypeInput.addItems(ScanGroup.STR_FIRST_SCAN)
+        elif index == 3:  # Bool
+            self.ScanExtraOptions.setCurrentIndex(2)
+            self.SearchTypeInput.addItem(ScanType.EXACT_VALUE)
+
+    def _scan_type_on_change(self):
+        cur_text = self.SearchTypeInput.currentText()
+
+        if cur_text in ScanInputGroup.DUAL_INPUT:
             self.ScanInputContainer.setCurrentIndex(1)
+        elif cur_text in ScanInputGroup.NO_INPUT:
+            self.ScanInputContainer.setCurrentIndex(2)
         else:
             self.ScanInputContainer.setCurrentIndex(0)
 
