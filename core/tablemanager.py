@@ -3,6 +3,9 @@ import struct
 import json
 import os
 
+MAGIC_HEADER = b'TBR-CTLBF'
+VERSION = b'1.0.0'
+
 
 def to_varint(x: int, signed=False) -> bytes:
     if signed:
@@ -125,6 +128,8 @@ def _save_table(f, item: list):
             value = json.loads(value)
         except json.JSONDecodeError:
             pass
+        except TypeError:
+            pass
 
         if value is None:
             dtype = 0
@@ -163,8 +168,8 @@ def _save_table(f, item: list):
 
 def save_table(file, table: list):
     with open(file, 'wb') as f:
-        f.write(b'TBR-CTLBF')
-        f.write(b'0.0.1')
+        f.write(MAGIC_HEADER)
+        f.write(VERSION)
         f.write(hashlib.sha256(json.dumps(table, sort_keys=True).encode('utf-8')).digest())
 
         f.write(to_varint(len(table)))
