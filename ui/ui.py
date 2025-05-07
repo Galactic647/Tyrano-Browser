@@ -595,6 +595,18 @@ class LucidEngineUI(QMainWindow):
         self.ValueTypeInput.currentIndexChanged.connect(self._value_type_on_change)
         self.SearchTypeInput.currentIndexChanged.connect(self._scan_type_on_change)
 
+        self.ResultTab.doubleClicked.connect(self.rt_move_to_vl)
+        self.ResultTab.customContextMenuRequested.connect(self.rt_context_menu)
+
+        self.ScanInput.returnPressed.connect(self.ScanButton.click)
+        self.ScanInputA.returnPressed.connect(self.ScanInputB.setFocus)
+        self.ScanInputB.returnPressed.connect(self.ScanButton.click)
+
+        self.ValueRadioButton.toggled.connect(self._scan_by_on_change)
+
+        self.ValueListWidget.customContextMenuRequested.connect(self.vl_context_menu)
+        self.ValueListWidget.itemDoubleClicked.connect(self.vl_edit_item_popup)
+
     def _value_type_on_change(self, index):
         self.SearchTypeInput.clear()
 
@@ -620,6 +632,17 @@ class LucidEngineUI(QMainWindow):
             self.ScanInputContainer.setCurrentIndex(2)
         else:
             self.ScanInputContainer.setCurrentIndex(0)
+
+    def _scan_by_on_change(self):
+        if self.ValueRadioButton.isChecked():
+            self.SearchTypeInput.setEnabled(True)
+            self.ValueTypeInput.setEnabled(True)
+            self._scan_type_on_change()
+            self._value_type_on_change(self.ValueTypeInput.currentIndex())
+        else:
+            self.SearchTypeInput.setEnabled(False)
+            self.ValueTypeInput.setEnabled(False)
+            self.ScanExtraOptions.setCurrentIndex(2)
 
     def add_item_to_value_list(self, name, path, value, parent):
         if not isinstance(value, str):
@@ -664,13 +687,14 @@ class LucidEngineUI(QMainWindow):
         add_selected = menu.addAction('Add selected variables to value list')
         change_value = menu.addAction('Change value of selected variables')
         change_value_to_previous = menu.addAction('Change value of selected variables to previous value')
+        change_value_to_first = menu.addAction('Change value of selected variables to first value')
         remove_selected = menu.addAction('Remove selected variables')
 
         action = menu.exec_(self.ResultTab.viewport().mapToGlobal(position))
 
         if action == add_selected:
             for item in items:
-                self.add_item_to_value_list(item.text(0), item.text(3), item.text(1), self.ValueListWidget)
+                self.add_item_to_value_list(item.text(0), item.text(4), item.text(1), self.ValueListWidget)
         elif action == change_value:
             dialog = EditValueDialog('Change Value', items[0].text(1), self)
             if dialog.exec_():
@@ -678,11 +702,15 @@ class LucidEngineUI(QMainWindow):
                     return
                 for item in items:
                     item.setText(1, dialog.new_value)
-                    self.set_value(item.text(3), dialog.new_value)
+                    self.set_value(item.text(4), dialog.new_value)
         elif action == change_value_to_previous:
             for item in items:
                 item.setText(1, item.text(2))
-                self.set_value(item.text(3), item.text(2))
+                self.set_value(item.text(4), item.text(2))
+        elif action == change_value_to_first:
+            for item in items:
+                item.setText(1, item.text(3))
+                self.set_value(item.text(4), item.text(3))
         elif action == remove_selected:
             for item in items:
                 self._rt_list_items.remove(item)
@@ -691,7 +719,7 @@ class LucidEngineUI(QMainWindow):
     def vl_context_menu(self, position):
         items = self.ValueListWidget.selectedItems()
 
-        if items is None:
+        if not items:
             self._vl_context_menu_empty(position)
         else:
             self._vl_context_menu_item(items, position)
