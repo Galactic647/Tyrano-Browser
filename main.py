@@ -35,9 +35,9 @@ class LucidEngine(LucidEngineUI):
         self.ScanButton.clicked.connect(self.scan_function)
         self.ClearButton.clicked.connect(self.clear_result)
 
-        self._update_prog_bar = QTimer()
-        self._update_prog_bar.timeout.connect(self.update_progress_bars)
-        self._update_prog_bar.start(100)
+        # self._update_prog_bar = QTimer()
+        # self._update_prog_bar.timeout.connect(self.update_progress_bars)
+        # self._update_prog_bar.start(100)
 
     @thread.run_cdp_async_protocol
     async def close_websocket(self, event):
@@ -72,6 +72,7 @@ class LucidEngine(LucidEngineUI):
 
                 item = QTreeWidgetItem(self.ResultTab, [
                     name,
+                    value,
                     value,
                     value,
                     path
@@ -303,7 +304,7 @@ class LucidEngine(LucidEngineUI):
                 if self._tree_list_items:
                     general_items = list(map(lambda x: x.text(1), self._tree_list_items))
                 if self._rt_list_items:
-                    result_items = list(map(lambda x: x.text(3), self._rt_list_items))
+                    result_items = list(map(lambda x: x.text(4), self._rt_list_items))
             except Exception as e:
                 print(repr(e))
 
@@ -342,14 +343,14 @@ class LucidEngine(LucidEngineUI):
                         ti.setText(2, val)
                 
                 for ri in self._rt_list_items:
-                    if ri.text(3) in data:
+                    if ri.text(4) in data:
                         prev = ri.text(2)
                         try:
                             prev = json.loads(prev)
                         except json.JSONDecodeError:
                             pass
 
-                        cur = data[ri.text(3)]
+                        cur = data[ri.text(4)]
                         try:
                             if isinstance(cur, str):
                                 ri.setText(1, cur)
