@@ -4,7 +4,7 @@ import json
 import os
 
 MAGIC_HEADER = b'TBR-CTLBF'
-VERSION = b'1.0.0'
+VERSION = b'0.0.1'
 
 
 def to_varint(x: int, signed=False) -> bytes:
